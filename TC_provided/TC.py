@@ -5,10 +5,18 @@
 
 import nltk, math, cPickle
 
-###################################################################################################
-#   Training Stage Definitions                                                                    #
-###################################################################################################
+def getTokens(filename):
+	""" A helper function that tokenizes a  file and returns the list of tokens """
+	with open(filename,'r') as f:
+		token_list = nltk.word_tokenize(f.read()) 			
+	return token_list
 
+def loadInvertedIndex():
+	""" Loads in trained system representation  and returns it as a InvertedIndex object """
+	input_filename = raw_input('Please specify the file containing the trained system representation: ')
+	with open(input_filename,'r') as f:
+		return cPickle.load(f)	
+		
 class Token:
 	""" A class that stores the IDF value and list of TF values for a given Token """
 	def __init__(self):
@@ -28,6 +36,10 @@ class InvertedIndex:
 		self.inverted_index = {} # (key,value) => (token, Token object)
 		self.category_count = {} # (key,value) => (category, number of docs belonging to given category)
 		self.N = 0               # total number of docs in training corpus
+		
+	###################################################################################################
+	#   Training Stage Definitions                                                                    #
+	###################################################################################################	
 	
 	def buildInvertedIndex(self): 
 		""" Processes training files to create inverted index with unnormalized weights """
@@ -73,7 +85,8 @@ class InvertedIndex:
 		
 	def _updateInvertedIndex(self,file,category):
 		""" A helper function that updates the InvertedIndex obj based on the contents of the given file-label pair """
-		token_list = self._getTokens(file)
+		#Generate list of tokens for the given document and set of unique tokens
+		token_list = getTokens(file)
 		token_set = set(token_list)	
 		#Iterate through token_list, incrementing TF of given category (label)
 		for token in token_list:
@@ -95,16 +108,72 @@ class InvertedIndex:
 		for token in self.inverted_index.keys():
 			self.inverted_index[token].setIDF(self.N)
 	
-	def _getTokens(self,filename):
-		""" A helper function that tokenizes a  file and returns the list of tokens"""
-		with open(filename,'r') as f:
-			token_list = nltk.word_tokenize(f.read()) 			
-		return token_list
-
-
-#Driver Program
-inverted_index=InvertedIndex()
-inverted_index.buildInvertedIndex()
-inverted_index.normalizeWeights()
-inverted_index.saveInvertedIndex()
-inverted_index2=loadInvertedIndex()	
+	###################################################################################################
+	#   Testing Stage Definitions                                                                     #
+	###################################################################################################
+			
+	def categorizeTexts(self): 
+		""" Categorizes test files """
+		#Prompt user for input filename and output filename
+		input_filename = raw_input('Please specify the file containing the list of test documents: ')
+		output_filename = raw_input('Please specify the name for the file containing the labeled test documents: ')
+		#Loop through docs and categorize them
+		with open(input_filename,'r') as test_file_list:
+			with open(output_filename,'w') as outfile:
+				for doc in test_file_list: 
+					self._categorize(doc.strip(),outfile)
+	
+	def _categorize(self,doc,outfile):
+		""" Helper function used  to categorize a single document and write the results to the outfile """
+		#Generate list of tokens for the given document
+		token_list = getTokens(doc)
+		#Compute similarity metric for each of the categories
+		similarities = {}
+		for category in self.category_count.keys():
+			similarities[category] = self._sim(token_list,category)
+		#Pick the category with highest similarity and write results to output file
+		label=max(similarities,key=similarities.get)
+		outfile.write(doc+' '+label+'\n')
+	
+	def _sim(self,token_list,category):
+		""" Helper function that computes the actual similarity metric """
+		doc_TFs={}
+		similarity=0
+		#Compute TFs of document tokens
+		for token in token_list:
+			doc_TFs[token]=doc_TFs.get(token,0)+1
+		#Compute similarity metric	
+		for token in doc_TFs:
+			if token in self.inverted_index and category in self.inverted_index[token].TF_dict:
+				category_TF=self.inverted_index[token].TF_dict[category]
+				doc_TF=doc_TFs[token]
+				IDF=self.inverted_index[token].IDF
+				similarity+=category_TF*doc_TF*(IDF**2)
+		return similarity		
+####################################################################################################
+#  Driver Program                                                                                  #
+####################################################################################################
+if __name__ == "__main__":
+	print 'Welcome to the Text Categorization Program:'
+	print '-------------------------------------------'
+	train = raw_input('Would you like to load in a previously trained system (0) or train the text categorization system with a new training set (1): ')
+	if train:
+		inverted_index=InvertedIndex()
+		inverted_index.buildInvertedIndex()
+		inverted_index.normalizeWeights()
+	
+	save=raw_input('Would you like to save a representation of the trained system for future use (0=>no,1=>yes): ')	
+	if save:
+		inverted_index.saveInvertedIndex()
+	
+	test = raw_input('Would you like to categorize a test set (0=>no,1=>yes): ')	
+	if test:
+		if not train:
+			inverted_index=loadInvertedIndex()
+		inverted_index.categorizeTexts()
+	
+	if not (train or test):
+		print "This probably isn't the program you are looking for"
+	
+	print "Thank you for using the Text Categorization Program"	
+		
