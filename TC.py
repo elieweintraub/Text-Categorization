@@ -31,7 +31,7 @@ class InvertedIndex:
 		self.category_count = {}                         # (key,value) => (category, number of docs belonging to given category)
 		self.N = 0                                       # total number of docs in training corpus
 		if token_params == 'default': 
-			self.CASE_INSENSITIVE = True                 # flag for whether or not tokenization should be case-insensitive
+			self.CASE_INSENSITIVE = False                # flag for whether or not tokenization should be case-insensitive
 			self.STOP_LIST = False                       # flag for whether or not tokenization should include a stop list
 			self.POS = False                             # flag for whether or not tokenization should include POS tagging
 		else:
@@ -57,7 +57,7 @@ class InvertedIndex:
 						   "wants","was","we","were","what","when","where","which","while","who","whom","why","will",
 						   "with","would","yet","you","your"]
 				stop_list2=["of","the","in","for","at"]		   
-				pattern = re.compile("\\b("+'|'.join(stop_list1)+")\\W", re.I)
+				pattern = re.compile("\\b("+'|'.join(stop_list2)+")\\W", re.I)
 				file=pattern.sub("", file)				
 			token_list = nltk.word_tokenize(file)			
 			if self.POS: 			
